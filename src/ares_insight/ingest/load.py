@@ -52,6 +52,7 @@ def load(entities: Entities) -> dict[str, int]:
         UNWIND $rows AS r
         MERGE (p:{PERSON} {{person_key: r.person_key}})
         SET p.name = r.name,
+            p.name_norm = r.name_norm,
             p.year_of_birth = r.year_of_birth,
             p.citizenship = r.citizenship
         """,
@@ -104,6 +105,28 @@ def load(entities: Entities) -> dict[str, int]:
     }
     logger.info("Load hotovo: %s", stats)
     return stats
+
+
+def backfill_name_norm() -> int:
+    """Doplni p.name_norm na existujicich Person uzlech (migrace bez re-ingestu).
+
+    Pocita se v Pythonu z p.name (fold_name), aby fold diakritiky byl shodny s
+    ingestem. Vraci pocet aktualizovanych uzlu.
+    """
+    from ares_insight.ingest.transform import fold_name
+
+    rows = connection.run(
+        f"MATCH (p:{PERSON}) WHERE p.name IS NOT NULL RETURN "
+        f"p.person_key AS key, p.name AS name"
+    )
+    updates = [{"key": r["key"], "norm": fold_name(r["name"])} for r in rows]
+    _run_batched(
+        f"UNWIND $rows AS r MATCH (p:{PERSON} {{person_key: r.key}}) "
+        f"SET p.name_norm = r.norm",
+        updates,
+    )
+    logger.info("Backfill name_norm: %d osob", len(updates))
+    return len(updates)
 
 
 def derive_shared_address() -> None:

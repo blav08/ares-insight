@@ -38,6 +38,17 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text).strip("-")
 
 
+def fold_name(text: str) -> str:
+    """Normalizuje jmeno na mala pismena bez diakritiky (pro vyhledavani).
+
+    "Libor Horák" -> "libor horak". Pouziva se na property Person.name_norm a
+    stejne se ma normalizovat hledany vyraz v dotazu (viz cypher prompt).
+    """
+    text = unicodedata.normalize("NFKD", text or "")
+    text = text.encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _address_key(adresa: dict) -> str | None:
     if not adresa:
         return None
@@ -132,10 +143,12 @@ def to_entities(raw_records) -> Entities:
                 continue
             if pkey not in seen_persons:
                 seen_persons.add(pkey)
+                full_name = _full_name(osoba)
                 ent.persons.append(
                     {
                         "person_key": pkey,
-                        "name": _full_name(osoba),
+                        "name": full_name,
+                        "name_norm": fold_name(full_name),
                         "year_of_birth": (osoba.get("datumNarozeni") or "")[:4] or None,
                         "citizenship": osoba.get("statniObcanstvi"),
                     }

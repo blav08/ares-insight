@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     # --- Anthropic ---
     anthropic_api_key: str = Field(default="")
     anthropic_model: str = Field(default="claude-haiku-4-5-20251001")
+    # Max poctu radku z grafu predanych LLM k synteze odpovedi (Faze 2).
+    query_top_k: int = Field(default=50)
 
     # --- Langfuse ---
     langfuse_public_key: str = Field(default="")

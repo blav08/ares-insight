@@ -1,4 +1,4 @@
-.PHONY: install lint test neo4j-up neo4j-down ingest api ui
+.PHONY: install lint test neo4j-up neo4j-down ingest query api ui
 
 install:
 	pip install -e ".[dev]"
@@ -17,6 +17,9 @@ neo4j-down:
 
 ingest:
 	python scripts/run_ingest.py
+
+query:
+	python scripts/run_query.py
 
 api:
 	uvicorn ares_insight.api.main:app --reload

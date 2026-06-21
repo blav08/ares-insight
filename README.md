@@ -84,10 +84,32 @@ RETURN p.name, firem ORDER BY firem DESC LIMIT 20;
 Referencni objem vyrezu (NACE 62/63, Praha, a.s.): ~2 300 firem, ~3 400 osob,
 ~1 200 adres, ~4 200 vztahu DIRECTOR_OF.
 
+## Dotazovani (Faze 2 - text-to-Cypher)
+
+Zeptej se cesky; Claude Haiku vygeneruje Cypher, spusti ho nad grafem a slozi
+ceskou odpoved i s podkladovymi daty (ICO, tabulka). Potrebuje naplneny graf
+(Faze 1), bezici Neo4j a `ANTHROPIC_API_KEY` v `.env`.
+
+```bash
+# jednorazovy dotaz
+python scripts/run_query.py "Ktere firmy sidli na stejne adrese jako ICO 27074358?"
+
+# interaktivni rezim
+python scripts/run_query.py
+```
+
+Priklady dotazu:
+- "Najdi firmy, kde je statutarem osoba jmenem Libor Horak."
+- "Ktere IT firmy v Praze maji vic nez tri statutary?"
+- "S kym je propojena firma s ICO ... pres spolecne statutary?"
+
+Generovani je promptem omezene na cteni a kazdy Cypher jeste prochazi read-only
+guardem (`is_read_only`) - pres prirozeny jazyk nejde do grafu zapsat.
+
 ## Roadmapa
 - [x] Faze 0 - kostra, setup, vyrez
 - [x] Faze 1 - ingest (ARES -> Neo4j)
-- [ ] Faze 2 - text-to-Cypher Q&A
+- [x] Faze 2 - text-to-Cypher Q&A
 - [ ] Faze 3 - FastAPI + Streamlit
 - [ ] Faze 4 - Docker, CI/CD, deploy, Langfuse (<- live URL)
 - [ ] Faze 5 - vektorova cesta, viz grafu, verejne zakazky

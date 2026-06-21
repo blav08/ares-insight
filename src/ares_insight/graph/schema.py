@@ -25,6 +25,9 @@ SCHEMA_STATEMENTS = [
     f"CREATE CONSTRAINT address_key IF NOT EXISTS "
     f"FOR (a:{ADDRESS}) REQUIRE a.address_key IS UNIQUE",
     f"CREATE INDEX company_name IF NOT EXISTS FOR (c:{COMPANY}) ON (c.name)",
+    # Fulltext-friendly index pro vyhledavani osob bez diakritiky (CONTAINS).
+    f"CREATE TEXT INDEX person_name_norm IF NOT EXISTS "
+    f"FOR (p:{PERSON}) ON (p.name_norm)",
 ]
 
 # Vektorovy index pro semantickou cestu (Faze 5). Dimenze podle embedding
