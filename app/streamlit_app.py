@@ -22,6 +22,7 @@ except Exception:  # noqa: BLE001 - kdyz komponenta chybi, graf se proste neukaz
     _HAS_AGRAPH = False
 
 _NODE_COLORS = {"Company": "#f59e0b", "Person": "#3b82f6", "Address": "#10b981"}
+_EDGE_COLORS = {"STATUTAR": "#3b82f6", "SIDLO": "#10b981"}
 _ICO_RE = re.compile(r"^\d{8}$")
 
 
@@ -87,20 +88,32 @@ def _render_graph(graph: dict) -> None:
     nodes = [
         Node(
             id=n["id"],
-            label=n["label"][:40],
+            label=n["label"][:28],
             color=_NODE_COLORS.get(n["type"], "#9ca3af"),
-            size=18 if n["type"] == "Company" else 12,
+            size=22 if n["type"] == "Company" else 14,
         )
         for n in graph["nodes"]
     ]
+    # Hrany bez textovych popisku (delaly v centru gulas) - typ nese barva.
     edges = [
-        Edge(source=e["source"], target=e["target"], label=e.get("label", ""))
+        Edge(
+            source=e["source"],
+            target=e["target"],
+            color=_EDGE_COLORS.get(e.get("label"), "#6b7280"),
+        )
         for e in graph["edges"]
     ]
-    config = Config(width=900, height=500, directed=True, physics=True,
-                    nodeHighlightBehavior=True, collapsible=False)
+    config = Config(
+        width=1000, height=650, directed=True, physics=True,
+        nodeHighlightBehavior=True, highlightColor="#fde68a", collapsible=False,
+        node={"labelProperty": "label", "renderLabel": True},
+        link={"labelProperty": "label", "renderLabel": False},
+    )
     with st.expander(f"Graf vztahu ({len(nodes)} uzlu)", expanded=True):
-        st.caption("Oranzova = firma, modra = osoba, zelena = adresa")
+        st.caption(
+            "Oranzova = firma, modra = osoba (modra hrana = statutar), "
+            "zelena = adresa (zelena hrana = sidlo). Da se zoomovat a tahat."
+        )
         agraph(nodes=nodes, edges=edges, config=config)
 
 
