@@ -48,6 +48,10 @@ if "messages" not in st.session_state:
 
 
 def _render(msg: dict) -> None:
+    path = msg.get("path")
+    if path:
+        label = {"cypher": "strukturovana (text-to-Cypher)", "semantic": "vektorova"}
+        st.caption(f"Cesta: {label.get(path, path)}")
     st.markdown(msg["answer"])
     if msg.get("cypher"):
         with st.expander("Pouzity Cypher"):

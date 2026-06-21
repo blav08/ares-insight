@@ -111,6 +111,18 @@ Priklady dotazu:
 Generovani je promptem omezene na cteni a kazdy Cypher jeste prochazi read-only
 guardem (`is_read_only`) - pres prirozeny jazyk nejde do grafu zapsat.
 
+## Hybridni vyhledavani (Faze 5 - vektorova cesta)
+
+Krome strukturovane cesty (text-to-Cypher) je k dispozici i **semanticka**:
+embeddingy firem (fastembed, multilingual-e5-small, 384d) v Neo4j vektorovem
+indexu. **Router** (`query/router.py`) u kazdeho dotazu rozhodne mezi presnou
+strukturovanou cestou a podobnostnim hledanim - odtud "hybridni GraphRAG".
+
+```bash
+# jednorazove: spocitat embeddingy a zalozit vektorovy index (po ingestu)
+python scripts/backfill_embeddings.py
+```
+
 ## Appka: API + UI (Faze 3)
 
 FastAPI vystavi `/query`, Streamlit je chatove UI nad nim. Potrebuje naplneny
@@ -149,4 +161,4 @@ Produkce zdarma: graf na **Neo4j AuraDB Free**, API na **Render**, UI na
 - [x] Faze 2 - text-to-Cypher Q&A
 - [x] Faze 3 - FastAPI + Streamlit
 - [x] Faze 4 - Docker, CI/CD, deploy (Render + Streamlit Cloud + AuraDB), Langfuse
-- [ ] Faze 5 - vektorova cesta, viz grafu, verejne zakazky
+- [~] Faze 5 - vektorova/semanticka cesta + router (hotovo); viz grafu, verejne zakazky (TODO)

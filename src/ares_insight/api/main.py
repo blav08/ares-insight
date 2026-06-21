@@ -28,6 +28,7 @@ class QueryResponse(BaseModel):
     answer: str
     cypher: str | None = None
     rows: list[dict[str, Any]] = []
+    path: str | None = None  # "cypher" | "semantic" - kterou cestou se odpovedelo
 
 
 @app.get("/health")
@@ -49,4 +50,5 @@ def query(req: QueryRequest) -> QueryResponse:
         answer=result.get("answer", ""),
         cypher=result.get("cypher") or None,
         rows=result.get("rows", []),
+        path=result.get("path"),
     )

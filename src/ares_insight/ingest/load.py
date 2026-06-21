@@ -129,6 +129,39 @@ def backfill_name_norm() -> int:
     return len(updates)
 
 
+def backfill_embeddings(batch: int = 128) -> int:
+    """Spocita a ulozi c.embedding pro firmy + zalozi vektorovy index (Faze 5).
+
+    Bez re-ingestu. Embeddingy se pocitaji lokalne (fastembed) po davkach.
+    """
+    from ares_insight.graph.schema import VECTOR_INDEX_STATEMENT
+    from ares_insight.query import embeddings
+
+    connection.run(VECTOR_INDEX_STATEMENT)
+    rows = connection.run(
+        f"MATCH (c:{COMPANY}) RETURN c.ico AS ico, c.name AS name, "
+        f"c.nace AS nace, c.address_text AS address_text"
+    )
+    total = 0
+    for i in range(0, len(rows), batch):
+        chunk = rows[i : i + batch]
+        texts = [embeddings.company_text(r) for r in chunk]
+        vecs = embeddings.embed_passages(texts)
+        updates = [
+            {"ico": r["ico"], "vec": v}
+            for r, v in zip(chunk, vecs, strict=True)
+        ]
+        connection.run(
+            f"UNWIND $rows AS r MATCH (c:{COMPANY} {{ico: r.ico}}) "
+            f"SET c.embedding = r.vec",
+            rows=updates,
+        )
+        total += len(updates)
+        logger.info("Embeddings: %d/%d", total, len(rows))
+    logger.info("Backfill embeddings hotovo: %d firem", total)
+    return total
+
+
 def derive_shared_address() -> None:
     """Odvodi (Company)-[:SHARES_ADDRESS_WITH]-(Company) pro firmy na stejne adrese.
 

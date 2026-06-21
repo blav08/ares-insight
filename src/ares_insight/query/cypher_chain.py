@@ -67,7 +67,10 @@ Mas k dispozici vysledek Cypher dotazu (kontext). Odpovez strucne a vecne v cest
 
 Pravidla:
 - Vychazej VYHRADNE z kontextu nize. Nic si nedomyslej.
-- Kdyz je kontext prazdny, napis, ze k dotazu nebyla nalezena zadna data.
+- Kontext je VYSLEDEK dotazu presne na tuhle otazku - ber ho jako odpoved a
+  interpretuj ho. Kdyz obsahuje agregaci/cislo (napr. count), je to primo
+  odpoved na "kolik" - tu hodnotu uved jako vysledek.
+- "Zadna data nenalezena" napis JEN kdyz je kontext uplne prazdny (prazdny seznam).
 - U firem zminuj nazev a ICO, at je odpoved overitelna.
 
 Kontext:
@@ -172,14 +175,23 @@ def _invoke_text(llm, prompt: str, config: dict) -> str:
 
 
 def answer_question(question: str) -> dict:
-    """Spusti pipeline pro jeden dotaz. Vraci {answer, cypher, rows}."""
-    from neo4j.exceptions import CypherSyntaxError
+    """Hybridni GraphRAG: router zvoli cestu a zodpovi. Vraci {answer, cypher, rows, path}."""
+    from ares_insight.query import router
 
     llm = _llm()
-    graph = _graph()
     config = {"callbacks": _langfuse_callbacks()}
-    schema = graph.schema
+    path = router.route(question, llm)
+    if path == "semantic":
+        return _answer_semantic(question, llm, config)
+    return _answer_cypher(question, llm, config)
 
+
+def _answer_cypher(question: str, llm, config: dict) -> dict:
+    """Strukturovana cesta: text-to-Cypher + sebeoprava + synteza."""
+    from neo4j.exceptions import CypherSyntaxError
+
+    graph = _graph()
+    schema = graph.schema
     base_prompt = CYPHER_GENERATION_TEMPLATE.format(schema=schema, question=question)
     cypher = _sanitize(_invoke_text(llm, base_prompt, config))
 
@@ -189,6 +201,7 @@ def answer_question(question: str) -> dict:
             "answer": "Dotaz byl zamitnut: vygenerovany Cypher nebyl jen pro cteni.",
             "cypher": cypher,
             "rows": [],
+            "path": "cypher",
         }
 
     rows: list = []
@@ -205,6 +218,7 @@ def answer_question(question: str) -> dict:
                 "answer": "Dotaz byl zamitnut: opraveny Cypher nebyl jen pro cteni.",
                 "cypher": cypher,
                 "rows": [],
+                "path": "cypher",
             }
         try:
             rows = graph.query(cypher)
@@ -214,9 +228,34 @@ def answer_question(question: str) -> dict:
                 "answer": "Nepodarilo se sestavit platny dotaz. Zkus ho preformulovat.",
                 "cypher": cypher,
                 "rows": [],
+                "path": "cypher",
             }
 
     rows = rows[: settings.query_top_k]
     qa_prompt = CYPHER_QA_TEMPLATE.format(context=str(rows), question=question)
     answer = _invoke_text(llm, qa_prompt, config)
-    return {"answer": answer, "cypher": cypher, "rows": rows}
+    return {"answer": answer, "cypher": cypher, "rows": rows, "path": "cypher"}
+
+
+def _semantic_rows(question: str, k: int = 10) -> list[dict]:
+    """Vektorove podobnostni hledani firem nad Neo4j vector indexem."""
+    from ares_insight.graph import connection
+    from ares_insight.query import embeddings
+
+    vec = embeddings.embed_query(question)
+    return connection.run(
+        "CALL db.index.vector.queryNodes('company_embedding', $k, $vec) "
+        "YIELD node, score "
+        "RETURN node.ico AS ico, node.name AS name, node.nace AS nace, "
+        "round(score, 3) AS score ORDER BY score DESC",
+        k=k,
+        vec=vec,
+    )
+
+
+def _answer_semantic(question: str, llm, config: dict) -> dict:
+    """Vektorova cesta: embedding dotazu -> podobnostni hledani -> synteza."""
+    rows = _semantic_rows(question, k=10)
+    qa_prompt = CYPHER_QA_TEMPLATE.format(context=str(rows), question=question)
+    answer = _invoke_text(llm, qa_prompt, config)
+    return {"answer": answer, "cypher": None, "rows": rows, "path": "semantic"}
