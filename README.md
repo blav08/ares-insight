@@ -4,6 +4,11 @@ Konverzacni **GraphRAG** nad ceskymi otevrenymi firemnimi daty (ARES). Ptas se c
 na firmy a jejich vztahy, system pod kapotou prohleda graf (Neo4j) pres text-to-Cypher
 (LangChain + Claude) a vrati odpoved i s podkladovymi daty.
 
+**Live demo:** https://ares-insight.streamlit.app/ &nbsp;|&nbsp;
+**API:** https://ares-insight-api.onrender.com/docs
+
+> Pozn.: hosting bezi na free tieru - prvni dotaz po necinnosti se ~minutu probouzi.
+
 > Data: ARES - otevrena data Ministerstva financi. Skutecne majitele (ESM, od 12/2025
 > neverejne) projekt vedome neresi.
 
@@ -143,5 +148,5 @@ Produkce zdarma: graf na **Neo4j AuraDB Free**, API na **Render**, UI na
 - [x] Faze 1 - ingest (ARES -> Neo4j)
 - [x] Faze 2 - text-to-Cypher Q&A
 - [x] Faze 3 - FastAPI + Streamlit
-- [ ] Faze 4 - Docker, CI/CD, deploy, Langfuse (<- live URL)
+- [x] Faze 4 - Docker, CI/CD, deploy (Render + Streamlit Cloud + AuraDB), Langfuse
 - [ ] Faze 5 - vektorova cesta, viz grafu, verejne zakazky

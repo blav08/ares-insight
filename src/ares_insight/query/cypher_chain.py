@@ -132,10 +132,26 @@ def _graph():
 
 
 def _langfuse_callbacks() -> list:
-    """Langfuse callback handler v listu (prazdny list, kdyz chybi klice)."""
+    """Langfuse callback handler v listu (prazdny list, kdyz chybi klice).
+
+    Podporuje obe verze knihovny: v3 (`langfuse.langchain`, cte klice z env) i
+    v2 (`langfuse.callback`, klice se predaji). Observability nikdy neshodi dotaz.
+    """
     if not settings.langfuse_secret_key:
         return []
-    try:
+    import os
+
+    os.environ.setdefault("LANGFUSE_PUBLIC_KEY", settings.langfuse_public_key)
+    os.environ.setdefault("LANGFUSE_SECRET_KEY", settings.langfuse_secret_key)
+    os.environ.setdefault("LANGFUSE_HOST", settings.langfuse_host)
+
+    try:  # langfuse v3
+        from langfuse.langchain import CallbackHandler
+
+        return [CallbackHandler()]
+    except Exception:  # noqa: BLE001 - zkusime starsi API
+        pass
+    try:  # langfuse v2
         from langfuse.callback import CallbackHandler
 
         return [
