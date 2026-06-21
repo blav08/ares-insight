@@ -106,10 +106,26 @@ Priklady dotazu:
 Generovani je promptem omezene na cteni a kazdy Cypher jeste prochazi read-only
 guardem (`is_read_only`) - pres prirozeny jazyk nejde do grafu zapsat.
 
+## Appka: API + UI (Faze 3)
+
+FastAPI vystavi `/query`, Streamlit je chatove UI nad nim. Potrebuje naplneny
+graf, bezici Neo4j a `ANTHROPIC_API_KEY` v `.env`.
+
+```bash
+# 1. terminal: API (http://localhost:8000, /docs pro Swagger)
+uvicorn ares_insight.api.main:app --reload
+
+# 2. terminal: UI (http://localhost:8501)
+streamlit run app/streamlit_app.py
+```
+
+UI vola API na adrese z `ARES_API_URL` (default `http://localhost:8000`).
+Odpoved ukazuje i pouzity Cypher a tabulku podkladovych dat (overitelnost).
+
 ## Roadmapa
 - [x] Faze 0 - kostra, setup, vyrez
 - [x] Faze 1 - ingest (ARES -> Neo4j)
 - [x] Faze 2 - text-to-Cypher Q&A
-- [ ] Faze 3 - FastAPI + Streamlit
+- [x] Faze 3 - FastAPI + Streamlit
 - [ ] Faze 4 - Docker, CI/CD, deploy, Langfuse (<- live URL)
 - [ ] Faze 5 - vektorova cesta, viz grafu, verejne zakazky

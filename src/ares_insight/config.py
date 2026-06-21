@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Max poctu radku z grafu predanych LLM k synteze odpovedi (Faze 2).
     query_top_k: int = Field(default=50)
 
+    # --- API / UI (Faze 3) ---
+    # URL, na ktere Streamlit UI vola FastAPI /query.
+    api_url: str = Field(default="http://localhost:8000")
+
     # --- Langfuse ---
     langfuse_public_key: str = Field(default="")
     langfuse_secret_key: str = Field(default="")
