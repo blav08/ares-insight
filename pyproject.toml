@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ares-insight"
+version = "0.1.0"
+description = "Conversational GraphRAG over Czech open business data (ARES)"
+requires-python = ">=3.11"
+dependencies = [
+    "neo4j>=5.20",
+    "langchain>=0.2",
+    "langchain-neo4j>=0.1",
+    "langchain-anthropic>=0.1",
+    "anthropic>=0.30",
+    "langfuse>=2.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "streamlit>=1.35",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "pandas>=2.2",
+    "requests>=2.31",
+    # Semantic/vector path (Faze 5):
+    # "sentence-transformers>=3.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.5", "pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
