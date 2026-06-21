@@ -130,6 +130,7 @@ def _graph():
         url=settings.neo4j_uri,
         username=settings.neo4j_user,
         password=settings.neo4j_password,
+        database=settings.neo4j_database,
         enhanced_schema=True,
     )
 

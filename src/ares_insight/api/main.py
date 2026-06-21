@@ -31,6 +31,15 @@ class QueryResponse(BaseModel):
     path: str | None = None  # "cypher" | "semantic" - kterou cestou se odpovedelo
 
 
+class SubgraphRequest(BaseModel):
+    icos: list[str] = []
+
+
+class SubgraphResponse(BaseModel):
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -65,3 +74,15 @@ def query(req: QueryRequest) -> QueryResponse:
         rows=result.get("rows", []),
         path=result.get("path"),
     )
+
+
+@app.post("/subgraph", response_model=SubgraphResponse)
+def subgraph(req: SubgraphRequest) -> SubgraphResponse:
+    from ares_insight.query import subgraph as sg
+
+    try:
+        data = sg.fetch_subgraph(req.icos)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Subgraph selhal")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return SubgraphResponse(nodes=data["nodes"], edges=data["edges"])

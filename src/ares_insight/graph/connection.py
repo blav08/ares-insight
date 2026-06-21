@@ -26,7 +26,7 @@ def close_driver() -> None:
 
 def run(query: str, **params) -> list[dict]:
     """Spusti Cypher dotaz a vrati zaznamy jako list dictu."""
-    with get_driver().session() as session:
+    with get_driver().session(database=settings.neo4j_database) as session:
         result = session.run(query, **params)
         return [record.data() for record in result]
 

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("neo4j_user", "neo4j_username"),
     )
     neo4j_password: str = Field(default="local-dev-password")
+    # Jmeno databaze. U nekterych Aura instanci != "neo4j" (= ID instance).
+    neo4j_database: str = Field(default="neo4j")
 
     # --- Anthropic ---
     anthropic_api_key: str = Field(default="")

@@ -161,4 +161,4 @@ Produkce zdarma: graf na **Neo4j AuraDB Free**, API na **Render**, UI na
 - [x] Faze 2 - text-to-Cypher Q&A
 - [x] Faze 3 - FastAPI + Streamlit
 - [x] Faze 4 - Docker, CI/CD, deploy (Render + Streamlit Cloud + AuraDB), Langfuse
-- [~] Faze 5 - vektorova/semanticka cesta + router (hotovo); viz grafu, verejne zakazky (TODO)
+- [~] Faze 5 - vektorova/semanticka cesta + router (hotovo), vizualizace grafu v UI (hotovo); verejne zakazky (TODO)
