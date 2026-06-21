@@ -122,6 +122,22 @@ streamlit run app/streamlit_app.py
 UI vola API na adrese z `ARES_API_URL` (default `http://localhost:8000`).
 Odpoved ukazuje i pouzity Cypher a tabulku podkladovych dat (overitelnost).
 
+## Nasazeni (Faze 4)
+
+Produkce zdarma: graf na **Neo4j AuraDB Free**, API na **Render**, UI na
+**Streamlit Community Cloud**.
+
+1. **AuraDB Free** - zaloz instanci (https://console.neo4j.io), uloz URI + heslo.
+   Nahraj vyrez do cloudu: v `.env` nastav AuraDB `NEO4J_*` a spust
+   `python scripts/run_ingest.py` + `python scripts/backfill_name_norm.py`.
+2. **API na Render** - New -> Blueprint -> tenhle repo (pouzije `render.yaml`,
+   build z `Dockerfile`). V dashboardu vypln tajne env promenne (NEO4J_*,
+   ANTHROPIC_API_KEY, pripadne LANGFUSE_*). Endpoint: `https://<app>.onrender.com`.
+3. **UI na Streamlit Cloud** - https://share.streamlit.io -> deploy z repa, hlavni
+   soubor `app/streamlit_app.py` (nainstaluje `app/requirements.txt`). V *Secrets*
+   nastav `ARES_API_URL` na Render URL.
+4. **Langfuse** - dopln klice do env promennych (Render) pro observability.
+
 ## Roadmapa
 - [x] Faze 0 - kostra, setup, vyrez
 - [x] Faze 1 - ingest (ARES -> Neo4j)

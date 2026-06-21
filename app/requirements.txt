@@ -1,0 +1,5 @@
+# Lehke zavislosti jen pro Streamlit Community Cloud (UI je tenky klient nad API).
+# Streamlit Cloud najde tenhle soubor vedle app/streamlit_app.py a nainstaluje
+# jen tohle - nemusi tahat neo4j/langchain z pyproject.
+streamlit>=1.35
+requests>=2.31

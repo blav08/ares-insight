@@ -10,5 +10,6 @@ COPY app ./app
 COPY scripts ./scripts
 
 EXPOSE 8000
-# Default: API. Pro Streamlit UI prepis CMD.
-CMD ["uvicorn", "ares_insight.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default: API. Hostingy (Render) predavaji port pres $PORT - shell forma ho
+# expanduje; lokalne fallback na 8000.
+CMD uvicorn ares_insight.api.main:app --host 0.0.0.0 --port ${PORT:-8000}

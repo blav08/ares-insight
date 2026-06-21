@@ -13,7 +13,18 @@ import os
 import requests
 import streamlit as st
 
-API_URL = os.environ.get("ARES_API_URL", "http://localhost:8000").rstrip("/")
+
+def _resolve_api_url() -> str:
+    """ARES_API_URL: nejdriv Streamlit secrets, pak env, pak lokalni default."""
+    try:
+        if "ARES_API_URL" in st.secrets:
+            return str(st.secrets["ARES_API_URL"]).rstrip("/")
+    except Exception:  # noqa: BLE001 - chybejici secrets.toml nesmi shodit UI
+        pass
+    return os.environ.get("ARES_API_URL", "http://localhost:8000").rstrip("/")
+
+
+API_URL = _resolve_api_url()
 
 st.set_page_config(page_title="ARES Insight", page_icon=":mag:")
 st.title("ARES Insight")
