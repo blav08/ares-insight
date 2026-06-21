@@ -11,8 +11,8 @@ services:
     envVars:
       - key: NEO4J_URI          # AuraDB: neo4j+s://<id>.databases.neo4j.io
         sync: false
-      - key: NEO4J_USER
-        value: neo4j
+      - key: NEO4J_USER         # u nekterych Aura instanci = ID instance, ne "neo4j"
+        sync: false
       - key: NEO4J_PASSWORD     # heslo z AuraDB credentials
         sync: false
       - key: ANTHROPIC_API_KEY

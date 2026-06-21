@@ -1,0 +1,18 @@
+name: keep-alive
+
+# Denni ping na /warmup - drzi AuraDB Free instanci vzhuru (uspala by se po
+# ~3 dnech necinnosti) a probudi Render. Bezi na GitHub Actions = zadne Claude
+# tokeny, zadne naklady. Lze spustit i rucne (workflow_dispatch).
+on:
+  schedule:
+    - cron: "0 6 * * *"   # kazdy den v 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping warmup endpoint
+        run: |
+          curl -fsS --retry 3 --retry-delay 30 --max-time 120 \
+            https://ares-insight-api.onrender.com/warmup

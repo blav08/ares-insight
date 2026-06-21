@@ -36,6 +36,19 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/warmup")
+def warmup():
+    """Lehky keep-alive: tukne na Neo4j (RETURN 1) bez LLM - drzi AuraDB Free
+    vzhuru (paklize se vola pravidelne) a probudi Render. Zadne tokeny."""
+    from ares_insight.graph import connection
+
+    try:
+        connection.run("RETURN 1 AS ok")
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"db: {exc}") from exc
+    return {"status": "ok", "db": "ok"}
+
+
 @app.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest) -> QueryResponse:
     question = (req.question or "").strip()

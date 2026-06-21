@@ -15,7 +15,7 @@ Poznamky k realnemu ARES API (overeno proti live API, Faze 1):
 - filtr neumi rok vzniku -> `founded_from_year` se aplikuje az klientsky.
 """
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,8 +25,14 @@ class Settings(BaseSettings):
     )
 
     # --- Neo4j ---
+    # Pozn.: AuraDB credentials soubor pouziva NEO4J_USERNAME a u nekterych
+    # instanci je uzivatel = ID instance (ne "neo4j"). Cteme proto i
+    # NEO4J_USERNAME, aby slo Aura texták vlozit primo bez prejmenovani.
     neo4j_uri: str = Field(default="bolt://localhost:7687")
-    neo4j_user: str = Field(default="neo4j")
+    neo4j_user: str = Field(
+        default="neo4j",
+        validation_alias=AliasChoices("neo4j_user", "neo4j_username"),
+    )
     neo4j_password: str = Field(default="local-dev-password")
 
     # --- Anthropic ---
