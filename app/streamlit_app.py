@@ -6,6 +6,9 @@ Vola FastAPI /query (a /subgraph pro vizualizaci). URL z ARES_API_URL / secrets.
 Ptas se cesky, dostanes ceskou odpoved + (rozbalovaci) pouzity Cypher, tabulku
 podkladovych dat a interaktivni graf vztahu (Faze 5) - aby slo odpoved overit
 proti zdroji (podminka ARES).
+
+Vizualni vrstva: theme v .streamlit/config.toml (indigo + slate paleta),
+custom CSS nize (Inter, badge pro cestu, legenda grafu, mobilni breakpointy).
 """
 
 import os
@@ -21,9 +24,71 @@ try:
 except Exception:  # noqa: BLE001 - kdyz komponenta chybi, graf se proste neukaze
     _HAS_AGRAPH = False
 
-_NODE_COLORS = {"Company": "#f59e0b", "Person": "#3b82f6", "Address": "#10b981"}
-_EDGE_COLORS = {"STATUTAR": "#3b82f6", "SIDLO": "#10b981"}
+_NODE_COLORS = {"Company": "#F59E0B", "Person": "#4F46E5", "Address": "#10B981"}
+_EDGE_COLORS = {"STATUTAR": "#4F46E5", "SIDLO": "#10B981"}
 _ICO_RE = re.compile(r"^\d{8}$")
+
+_EXAMPLES = [
+    "Kolik firem je celkem v databázi?",
+    "Najdi firmy, kde je statutárem Libor Horák.",
+    "Které firmy mají víc než tři statutáry?",
+    "Vypiš 5 osob, které jsou statutárem v nejvíce firmách.",
+    "Firmy zaměřené na vývoj softwaru",
+]
+
+_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Typografie: Inter pro text, ale nechat ikonove fonty na pokoji */
+html, body, p, li, input, textarea, button, h1, h2, h3, h4,
+[data-testid="stMarkdownContainer"] {
+    font-family: 'Inter', 'Source Sans Pro', sans-serif;
+}
+[data-testid="stIconMaterial"] {
+    font-family: 'Material Symbols Rounded' !important;
+}
+h1 { letter-spacing: -0.02em; font-weight: 700; }
+
+/* Uzsi obsahovy sloupec = citelnejsi chat (i pri layout="wide") */
+.block-container { max-width: 1100px; padding-top: 2.2rem; }
+
+/* Kod (Cypher) - mensi, at neprebiji odpoved */
+code, pre { font-size: 0.85rem !important; }
+
+/* Badge pro cestu routeru */
+.ares-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+    margin-bottom: 6px;
+}
+.ares-badge.cypher   { background: #EEF2FF; color: #4338CA; }
+.ares-badge.semantic { background: #ECFDF5; color: #047857; }
+
+/* Legenda grafu - barevne cipy misto vety */
+.ares-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 10px; border-radius: 999px; background: #F1F5F9;
+    font-size: 0.75rem; margin-right: 6px; margin-bottom: 4px;
+}
+.ares-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* Stavova tecka API v sidebaru */
+.ares-status { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; }
+
+/* Graf (iframe komponenty) nikdy nepretece na mobilu */
+iframe { max-width: 100%; }
+
+/* Mobil: mensi odsazeni, mensi titulek */
+@media (max-width: 640px) {
+    .block-container { padding-left: 0.8rem; padding-right: 0.8rem; padding-top: 1.2rem; }
+    h1 { font-size: 1.5rem !important; }
+}
+
+/* Skryt Streamlit chrome - pusobi to jako produkt, ne demo */
+#MainMenu, footer { visibility: hidden; }
+</style>
+"""
 
 
 def _resolve_api_url() -> str:
@@ -37,6 +102,15 @@ def _resolve_api_url() -> str:
 
 
 API_URL = _resolve_api_url()
+
+
+@st.cache_data(ttl=90, show_spinner=False)
+def _api_alive(url: str) -> bool:
+    """Zdravi API (cache 90 s, at se health nevola pri kazdem rerunu)."""
+    try:
+        return requests.get(f"{url}/health", timeout=4).ok
+    except requests.RequestException:
+        return False
 
 
 def _extract_icos(rows: list[dict]) -> list[str]:
@@ -61,25 +135,56 @@ def _fetch_subgraph(icos: list[str]) -> dict:
         return {"nodes": [], "edges": []}
 
 
-st.set_page_config(page_title="ARES Insight", page_icon=":mag:", layout="wide")
+st.set_page_config(
+    page_title="ARES Insight",
+    page_icon=":mag:",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
+st.markdown(_CSS, unsafe_allow_html=True)
+
 st.title("ARES Insight")
 st.caption(
-    "Ptej se cesky na ceske firmy a jejich vztahy. Data: ARES (otevrena data MF)."
+    "Ptej se česky na české firmy a jejich vztahy — kdo s kým sdílí statutáry, "
+    "kdo sídlí na stejné adrese. Data: ARES (otevřená data MF)."
 )
 
 with st.sidebar:
-    st.subheader("Priklady dotazu")
+    alive = _api_alive(API_URL)
+    dot = "#10B981" if alive else "#F59E0B"
+    label = "API běží" if alive else "API se probouzí (free tier, ~1 min)"
     st.markdown(
-        "- Kolik firem je celkem v databazi?\n"
-        "- Najdi firmy, kde je statutarem Libor Horak.\n"
-        "- Ktere firmy maji vic nez tri statutary?\n"
-        "- Vypis 5 osob, ktere jsou statutarem v nejvice firmach.\n"
-        "- Firmy zamerene na vyvoj softwaru"
+        f'<div class="ares-status"><span class="ares-dot" '
+        f'style="background:{dot}"></span>{label}</div>',
+        unsafe_allow_html=True,
     )
-    st.caption(f"API: {API_URL}")
+    st.divider()
+    st.subheader("Zkuste se zeptat")
+    for i, ex in enumerate(_EXAMPLES):
+        if st.button(ex, key=f"ex_{i}", use_container_width=True):
+            st.session_state.pending_question = ex
+    st.divider()
+    st.caption(
+        "Výřez dat: IT firmy (a.s.) se sídlem v Praze — ~2 300 firem, "
+        "~3 400 osob. Každá odpověď ukazuje použitý dotaz i podkladová data."
+    )
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+
+def _legend_html() -> str:
+    items = [
+        ("Firma", _NODE_COLORS["Company"]),
+        ("Osoba / statutár", _NODE_COLORS["Person"]),
+        ("Adresa / sídlo", _NODE_COLORS["Address"]),
+    ]
+    chips = "".join(
+        f'<span class="ares-chip"><span class="ares-dot" '
+        f'style="background:{c}"></span>{t}</span>'
+        for t, c in items
+    )
+    return f"<div>{chips}</div>"
 
 
 def _render_graph(graph: dict) -> None:
@@ -89,7 +194,7 @@ def _render_graph(graph: dict) -> None:
         Node(
             id=n["id"],
             label=n["label"][:28],
-            color=_NODE_COLORS.get(n["type"], "#9ca3af"),
+            color=_NODE_COLORS.get(n["type"], "#9CA3AF"),
             size=22 if n["type"] == "Company" else 14,
         )
         for n in graph["nodes"]
@@ -99,38 +204,50 @@ def _render_graph(graph: dict) -> None:
         Edge(
             source=e["source"],
             target=e["target"],
-            color=_EDGE_COLORS.get(e.get("label"), "#6b7280"),
+            color=_EDGE_COLORS.get(e.get("label"), "#6B7280"),
         )
         for e in graph["edges"]
     ]
     config = Config(
-        width=1000, height=650, directed=True, physics=True,
-        nodeHighlightBehavior=True, highlightColor="#fde68a", collapsible=False,
+        width=1000, height=560, directed=True, physics=True,
+        nodeHighlightBehavior=True, highlightColor="#FDE68A", collapsible=False,
         node={"labelProperty": "label", "renderLabel": True},
         link={"labelProperty": "label", "renderLabel": False},
     )
-    with st.expander(f"Graf vztahu ({len(nodes)} uzlu)", expanded=True):
-        st.caption(
-            "Oranzova = firma, modra = osoba (modra hrana = statutar), "
-            "zelena = adresa (zelena hrana = sidlo). Da se zoomovat a tahat."
-        )
+    with st.expander(f"Graf vztahů · {len(nodes)} uzlů", expanded=True):
+        st.markdown(_legend_html(), unsafe_allow_html=True)
+        st.caption("Přibližování kolečkem, uzly jdou přetahovat.")
         agraph(nodes=nodes, edges=edges, config=config)
 
 
 def _render(msg: dict) -> None:
     path = msg.get("path")
     if path:
-        label = {"cypher": "strukturovana (text-to-Cypher)", "semantic": "vektorova"}
-        st.caption(f"Cesta: {label.get(path, path)}")
+        label = {
+            "cypher": "strukturovaná cesta · text-to-Cypher",
+            "semantic": "sémantická cesta · vektorové hledání",
+        }
+        st.markdown(
+            f'<span class="ares-badge {path}">{label.get(path, path)}</span>',
+            unsafe_allow_html=True,
+        )
     st.markdown(msg["answer"])
     if msg.get("cypher"):
-        with st.expander("Pouzity Cypher"):
+        with st.expander("Použitý Cypher"):
             st.code(msg["cypher"], language="cypher")
     if msg.get("rows"):
-        with st.expander(f"Podkladova data ({len(msg['rows'])} radku)"):
-            st.dataframe(msg["rows"], use_container_width=True)
+        with st.expander(f"Podkladová data · {len(msg['rows'])} řádků"):
+            st.dataframe(msg["rows"], use_container_width=True, hide_index=True)
     _render_graph(msg.get("graph"))
 
+
+# Prazdny stav: uvitani + klikatelne priklady primo v hlavni plose
+if not st.session_state.messages:
+    st.markdown("#### Na co se můžete ptát")
+    cols = st.columns(2)
+    for i, ex in enumerate(_EXAMPLES[:4]):
+        if cols[i % 2].button(ex, key=f"hero_{i}", use_container_width=True):
+            st.session_state.pending_question = ex
 
 # Historie konverzace
 for msg in st.session_state.messages:
@@ -140,14 +257,17 @@ for msg in st.session_state.messages:
         else:
             st.markdown(msg["content"])
 
-question = st.chat_input("Zeptej se cesky...")
+question = st.chat_input("Zeptej se česky…")
+if not question:
+    question = st.session_state.pop("pending_question", None)
+
 if question:
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user"):
         st.markdown(question)
 
     with st.chat_message("assistant"):
-        with st.spinner("Hledam v grafu..."):
+        with st.spinner("Hledám v grafu…"):
             try:
                 resp = requests.post(
                     f"{API_URL}/query", json={"question": question}, timeout=120
@@ -155,10 +275,11 @@ if question:
                 resp.raise_for_status()
                 data = resp.json()
             except requests.RequestException as exc:
-                data = {"answer": f"Chyba pri volani API: {exc}", "rows": []}
+                data = {"answer": f"Chyba při volání API: {exc}", "rows": []}
             icos = _extract_icos(data.get("rows", []))
             if icos:
                 data["graph"] = _fetch_subgraph(icos)
         _render(data)
 
     st.session_state.messages.append({"role": "assistant", **data})
+    st.rerun()

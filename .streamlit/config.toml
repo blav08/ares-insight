@@ -1,0 +1,15 @@
+# Vizualni tema ARES Insight - cisty, svetly vzhled pro analyticky nastroj.
+# Paleta: indigo jako akcent, slate neutraly (vysoky kontrast pro cteni dat).
+[theme]
+base = "light"
+primaryColor = "#4F46E5"              # indigo-600: akcent, tlacitka, focus
+backgroundColor = "#FFFFFF"           # hlavni plocha - cista bila pro data
+secondaryBackgroundColor = "#F8FAFC"  # slate-50: sidebar, chat bubliny, expandery
+textColor = "#0F172A"                 # slate-900: temer cerna, max. citelnost
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
