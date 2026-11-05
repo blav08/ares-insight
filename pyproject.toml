@@ -22,7 +22,7 @@ dependencies = [
     "pandas>=2.2",
     "requests>=2.31",
     # Semantic/vector path (Faze 5): lehke ONNX embeddingy (bez torch).
-    "fastembed>=0.3",
+    "fastembed==0.8.0",  # pinned: local backfill and deployed API must embed identically
 ]
 
 [project.optional-dependencies]
