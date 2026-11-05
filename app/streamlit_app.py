@@ -28,13 +28,40 @@ _NODE_COLORS = {"Company": "#F59E0B", "Person": "#4F46E5", "Address": "#10B981"}
 _EDGE_COLORS = {"STATUTAR": "#4F46E5", "SIDLO": "#10B981"}
 _ICO_RE = re.compile(r"^\d{8}$")
 
-_EXAMPLES = [
+# Hlavni plocha: 4 rychle startovni dotazy (prvni dojem, kazdy ukazuje jinou schopnost)
+_HERO_EXAMPLES = [
     "Kolik firem je celkem v databázi?",
     "Najdi firmy, kde je statutárem Libor Horák.",
-    "Které firmy mají víc než tři statutáry?",
-    "Vypiš 5 osob, které jsou statutárem v nejvíce firmách.",
-    "Firmy zaměřené na vývoj softwaru",
+    "Na které adrese sídlí nejvíc firem?",
 ]
+# 4th hero slot depends on whether the API has the vector path enabled
+# (on Render Free it is off: the embedding model does not fit into 512 MB RAM).
+_HERO_SEMANTIC = "Firmy zaměřené na vývoj softwaru"
+_HERO_FALLBACK = "Která firma v databázi vznikla nejdříve?"
+# Sidebar groups that only make sense with the semantic (vector) path.
+_SEMANTIC_GROUPS = {"Tematické hledání"}
+
+# Sidebar: JINE dotazy nez v hlavni plose, seskupene podle typu -> je videt,
+# co vsechno system umi (strukturovana i semanticka cesta).
+_SIDEBAR_EXAMPLES = {
+    "Počty a statistiky": [
+        "Kolik firem vzniklo po roce 2020?",
+        "Které firmy mají víc než tři statutáry?",
+    ],
+    "Lidé ve vedení": [
+        "Vypiš 5 osob, které jsou statutárem v nejvíce firmách.",
+        "Ve kterých firmách působí lidé s příjmením Novák?",
+        "Kolik osob je statutárem ve více než třech firmách?",
+    ],
+    "Propojení firem": [
+        "Které dvojice firem sdílejí nejvíc společných statutárů?",
+        "Které firmy sídlí na stejné adrese a zároveň sdílejí statutára?",
+    ],
+    "Tematické hledání": [
+        "Firmy specializované na kybernetickou bezpečnost",
+        "Firmy zaměřené na datovou analytiku a umělou inteligenci",
+    ],
+}
 
 _CSS = """
 <style>
@@ -72,6 +99,12 @@ code, pre { font-size: 0.85rem !important; }
     font-size: 0.75rem; margin-right: 6px; margin-bottom: 4px;
 }
 .ares-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* Nadpisy skupin prikladovych dotazu v sidebaru */
+.ares-group {
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #64748B; margin: 0.9rem 0 0.35rem;
+}
 
 /* Stavova tecka API v sidebaru */
 .ares-status { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; }
@@ -113,6 +146,52 @@ def _api_alive(url: str) -> bool:
         return False
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_stats(url: str) -> dict:
+    """Live dataset size from API /stats (cache 1 h). Raises on failure on
+    purpose: st.cache_data does not cache exceptions, so a sleeping API is
+    retried on the next rerun instead of caching an empty result for an hour."""
+    resp = requests.get(f"{url}/stats", timeout=10)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _get_stats() -> dict | None:
+    try:
+        return _fetch_stats(API_URL)
+    except Exception:  # noqa: BLE001 - API asleep/unreachable -> UI falls back
+        return None
+
+
+def _fmt_int(n: int) -> str:
+    """2363 -> '2 363' (Czech thousands separator, non-breaking space)."""
+    return f"{n:,}".replace(",", "\u00a0")
+
+
+def _fmt_date(iso: str | None) -> str | None:
+    """'2026-11-05' -> '5. 11. 2026'."""
+    try:
+        y, m, d = (int(x) for x in iso.split("-"))
+    except Exception:  # noqa: BLE001
+        return None
+    return f"{d}. {m}. {y}"
+
+
+def _data_caption(stats: dict | None) -> str:
+    base = "Výřez dat: IT firmy (a.s.) se sídlem v Praze"
+    tail = "Každá odpověď ukazuje použitý dotaz i podkladová data."
+    if not stats:
+        return f"{base}. {tail}"
+    text = (
+        f"{base} — {_fmt_int(stats['companies'])} firem, "
+        f"{_fmt_int(stats['persons'])} osob, {_fmt_int(stats['addresses'])} adres"
+    )
+    as_of = _fmt_date(stats.get("ingested_at"))
+    if as_of:
+        text += f" (stav k {as_of})"
+    return f"{text}. {tail}"
+
+
 def _extract_icos(rows: list[dict]) -> list[str]:
     """Vytahne ICO (8 cislic) z libovolneho sloupce, jehoz nazev obsahuje 'ico'."""
     found: list[str] = []
@@ -149,6 +228,11 @@ st.caption(
     "kdo sídlí na stejné adrese. Data: ARES (otevřená data MF)."
 )
 
+stats = _get_stats()
+# Unknown (API asleep) -> assume semantic is off: better to hide an example
+# than to offer one that crashes the API.
+semantic_on = bool(stats and stats.get("semantic_enabled"))
+
 with st.sidebar:
     alive = _api_alive(API_URL)
     dot = "#10B981" if alive else "#F59E0B"
@@ -159,15 +243,16 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.divider()
-    st.subheader("Zkuste se zeptat")
-    for i, ex in enumerate(_EXAMPLES):
-        if st.button(ex, key=f"ex_{i}", use_container_width=True):
-            st.session_state.pending_question = ex
+    st.subheader("Další dotazy")
+    for g, (group, examples) in enumerate(_SIDEBAR_EXAMPLES.items()):
+        if group in _SEMANTIC_GROUPS and not semantic_on:
+            continue
+        st.markdown(f'<div class="ares-group">{group}</div>', unsafe_allow_html=True)
+        for i, ex in enumerate(examples):
+            if st.button(ex, key=f"ex_{g}_{i}", use_container_width=True):
+                st.session_state.pending_question = ex
     st.divider()
-    st.caption(
-        "Výřez dat: IT firmy (a.s.) se sídlem v Praze — ~2 300 firem, "
-        "~3 400 osob. Každá odpověď ukazuje použitý dotaz i podkladová data."
-    )
+    st.caption(_data_caption(stats))
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -245,7 +330,8 @@ def _render(msg: dict) -> None:
 if not st.session_state.messages:
     st.markdown("#### Na co se můžete ptát")
     cols = st.columns(2)
-    for i, ex in enumerate(_EXAMPLES[:4]):
+    hero = _HERO_EXAMPLES + [_HERO_SEMANTIC if semantic_on else _HERO_FALLBACK]
+    for i, ex in enumerate(hero):
         if cols[i % 2].button(ex, key=f"hero_{i}", use_container_width=True):
             st.session_state.pending_question = ex
 

@@ -41,3 +41,27 @@ def test_query_wraps_errors(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         main.query(QueryRequest(question="cokoliv"))
     assert exc.value.status_code == 500
+
+
+def test_stats(monkeypatch):
+    from ares_insight.graph import connection
+
+    fake = [{"companies": 2363, "persons": 3481, "addresses": 1226, "ingested_at": "2026-11-05"}]
+    monkeypatch.setattr(connection, "run", lambda *a, **k: fake)
+
+    res = main.stats()
+    assert res.companies == 2363
+    assert res.ingested_at == "2026-11-05"
+    assert isinstance(res.semantic_enabled, bool)
+
+
+def test_stats_db_down(monkeypatch):
+    from ares_insight.graph import connection
+
+    def boom(*a, **k):
+        raise RuntimeError("no db")
+
+    monkeypatch.setattr(connection, "run", boom)
+    with pytest.raises(HTTPException) as exc:
+        main.stats()
+    assert exc.value.status_code == 503

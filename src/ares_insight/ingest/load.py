@@ -95,6 +95,7 @@ def load(entities: Entities) -> dict[str, int]:
     )
 
     derive_shared_address()
+    mark_ingested()
 
     stats = {
         "companies": len(entities.companies),
@@ -105,6 +106,12 @@ def load(entities: Entities) -> dict[str, int]:
     }
     logger.info("Load hotovo: %s", stats)
     return stats
+
+
+def mark_ingested() -> None:
+    """Store the ingest date in a single :Meta node so the UI can show
+    which date the data is valid for (served by API /stats)."""
+    connection.run("MERGE (m:Meta {key: 'ingest'}) SET m.ingested_at = toString(date())")
 
 
 def backfill_name_norm() -> int:

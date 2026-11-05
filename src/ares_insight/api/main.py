@@ -31,6 +31,14 @@ class QueryResponse(BaseModel):
     path: str | None = None  # "cypher" | "semantic" - kterou cestou se odpovedelo
 
 
+class StatsResponse(BaseModel):
+    companies: int
+    persons: int
+    addresses: int
+    ingested_at: str | None = None  # ISO date of the last ingest (None if unknown)
+    semantic_enabled: bool  # lets the UI hide examples that need the vector path
+
+
 class SubgraphRequest(BaseModel):
     icos: list[str] = []
 
@@ -56,6 +64,26 @@ def warmup():
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"db: {exc}") from exc
     return {"status": "ok", "db": "ok"}
+
+
+@app.get("/stats", response_model=StatsResponse)
+def stats() -> StatsResponse:
+    """Live dataset size for the UI info text (no LLM, one cheap Cypher query)."""
+    from ares_insight.config import settings
+    from ares_insight.graph import connection
+
+    # COUNT {} subqueries count each label independently in a single round trip.
+    query = (
+        "RETURN COUNT { (:Company) } AS companies, "
+        "COUNT { (:Person) } AS persons, "
+        "COUNT { (:Address) } AS addresses, "
+        "head([(m:Meta {key: 'ingest'}) | m.ingested_at]) AS ingested_at"
+    )
+    try:
+        row = connection.run(query)[0]
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"db: {exc}") from exc
+    return StatsResponse(**row, semantic_enabled=settings.enable_semantic)
 
 
 @app.post("/query", response_model=QueryResponse)
