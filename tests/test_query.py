@@ -38,3 +38,27 @@ def test_read_only_guard_blocks_writes():
 def test_strip_fences():
     assert _strip_fences("```cypher\nMATCH (n) RETURN n\n```") == "MATCH (n) RETURN n"
     assert _strip_fences("MATCH (n) RETURN n") == "MATCH (n) RETURN n"
+
+
+def test_semantic_disabled_skips_router(monkeypatch):
+    """With ENABLE_SEMANTIC=false every question must go through Cypher
+    and the router must not be called (no extra LLM call, no embedding model)."""
+    from ares_insight.query import cypher_chain, router
+
+    monkeypatch.setattr(cypher_chain.settings, "enable_semantic", False)
+    monkeypatch.setattr(cypher_chain, "_llm", lambda: object())
+    monkeypatch.setattr(cypher_chain, "_langfuse_callbacks", lambda: [])
+
+    def fail_route(*a, **k):
+        raise AssertionError("router must not be called when semantic is disabled")
+
+    def fail_semantic(*a, **k):
+        raise AssertionError("semantic path must not be used")
+
+    monkeypatch.setattr(router, "route", fail_route)
+    monkeypatch.setattr(cypher_chain, "_answer_semantic", fail_semantic)
+    monkeypatch.setattr(
+        cypher_chain, "_answer_cypher", lambda q, llm, cfg: {"answer": "ok", "path": "cypher"}
+    )
+
+    assert cypher_chain.answer_question("Firmy zamerene na kyberbezpecnost")["path"] == "cypher"

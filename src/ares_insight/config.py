@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="claude-haiku-4-5-20251001")
     # Max poctu radku z grafu predanych LLM k synteze odpovedi (Faze 2).
     query_top_k: int = Field(default=50)
+    # Semantic (vector) path toggle. The local embedding model needs ~750 MB RAM,
+    # which exceeds Render Free (512 MB) and gets the whole API OOM-killed.
+    # On Render set ENABLE_SEMANTIC=false -> every question goes through Cypher.
+    enable_semantic: bool = Field(default=True)
 
     # --- API / UI (Faze 3) ---
     # URL, na ktere Streamlit UI vola FastAPI /query.

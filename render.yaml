@@ -19,6 +19,8 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: ENABLE_SEMANTIC   # embedding model needs ~750 MB > 512 MB Free RAM
+        value: "false"
       - key: ANTHROPIC_MODEL
         value: claude-haiku-4-5-20251001
       - key: LANGFUSE_PUBLIC_KEY

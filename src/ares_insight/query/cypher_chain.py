@@ -181,7 +181,9 @@ def answer_question(question: str) -> dict:
 
     llm = _llm()
     config = {"callbacks": _langfuse_callbacks()}
-    path = router.route(question, llm)
+    # When the semantic path is disabled, skip routing entirely: it would only
+    # cost an extra LLM call and its "semantic" answer could not be served anyway.
+    path = router.route(question, llm) if settings.enable_semantic else "cypher"
     if path == "semantic":
         return _answer_semantic(question, llm, config)
     return _answer_cypher(question, llm, config)
