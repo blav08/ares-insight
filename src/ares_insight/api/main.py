@@ -57,12 +57,24 @@ def health():
 def warmup():
     """Lehky keep-alive: tukne na Neo4j (RETURN 1) bez LLM - drzi AuraDB Free
     vzhuru (paklize se vola pravidelne) a probudi Render. Zadne tokeny."""
+    import time
+
     from ares_insight.graph import connection
 
-    try:
-        connection.run("RETURN 1 AS ok")
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=f"db: {exc}") from exc
+    # Retry: right after a Render cold start the first Bolt/TLS connection to
+    # Aura sometimes fails transiently (seen as SSLEOFError). One failed attempt
+    # should not make the daily keep-alive look like an outage.
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            connection.run("RETURN 1 AS ok")
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            connection.close_driver()  # drop possibly broken pooled connections
+            time.sleep(2 * (attempt + 1))
+    else:
+        raise HTTPException(status_code=503, detail=f"db: {last_exc}") from last_exc
     return {"status": "ok", "db": "ok"}
 
 
@@ -73,11 +85,15 @@ def stats() -> StatsResponse:
     from ares_insight.graph import connection
 
     # COUNT {} subqueries count each label independently in a single round trip.
+    # OPTIONAL MATCH keeps the row even when no :Meta node exists yet
+    # (ingested_at is then null). A pattern comprehension can't be used here:
+    # Cypher requires it to contain a relationship.
     query = (
+        "OPTIONAL MATCH (m:Meta {key: 'ingest'}) "
         "RETURN COUNT { (:Company) } AS companies, "
         "COUNT { (:Person) } AS persons, "
         "COUNT { (:Address) } AS addresses, "
-        "head([(m:Meta {key: 'ingest'}) | m.ingested_at]) AS ingested_at"
+        "m.ingested_at AS ingested_at"
     )
     try:
         row = connection.run(query)[0]

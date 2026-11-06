@@ -65,3 +65,21 @@ def test_stats_db_down(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         main.stats()
     assert exc.value.status_code == 503
+
+
+def test_warmup_retries_transient_error(monkeypatch):
+    from ares_insight.graph import connection
+
+    calls = {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("SSLEOFError")
+        return [{"ok": 1}]
+
+    monkeypatch.setattr(connection, "run", flaky)
+    monkeypatch.setattr(connection, "close_driver", lambda: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    assert main.warmup()["db"] == "ok"
+    assert calls["n"] == 2
